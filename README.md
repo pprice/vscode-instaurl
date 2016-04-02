@@ -1,2 +1,2 @@
 # vscode-instaurl
-Instaurl integration for Visual Studio Code
+instaurl integration for Visual Studio Code. Easy, secure sharing through one-time URL's.
