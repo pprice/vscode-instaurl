@@ -1,24 +1,137 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode'; 
+import * as vscode from 'vscode';
+import * as Instaurl from 'instaurl';
+import * as ncp from 'copy-paste';
+
+class VsCodeInstaurl {
+
+    static MaxSize: number = 10 * 1024;
+
+    private targets: { [key: string]: (payload) => void } = {
+        'clipboard': (payload) => {
+            let url = payload.webUrl;
+
+            return ncp.copy(url, () => {
+                vscode.window.showInformationMessage('instaurl copied to clipboard!');
+            });
+        }
+    }
+
+    private sources: { [key: string]: (callback) => void } = {
+        'clipboard': (callback) => {
+            ncp.paste((err, result) => {
+                if (err || typeof result !== 'string') {
+                    return vscode.window.showInformationMessage('Failed to get clipboard contents');
+                }
+
+                let lowercaseResult = result.toLowerCase();
+                if (lowercaseResult.indexOf('https://www.instaurl.com') !== 0 || (lowercaseResult.indexOf('/i/') === -1 && lowercaseResult.indexOf('/v1.0/url/') === -1)) {
+                    return vscode.window.showInformationMessage(`Not a instaurl in the clipboard`);
+                }
+
+                // parse out the key
+                let key = result.split('/').pop();
+                return callback(null, key);
+            });
+        }
+    }
+
+    private instaurl = null;
+
+    constructor(token) {
+        this.instaurl = new Instaurl({ token: token });
+    }
+
+    createFromActive(target) {
+        let buffer = this.getActiveBuffer();
+
+        if (!buffer) {
+            return;
+        }
+
+        let targetExec = this.targets[target];
+
+        if (!targetExec) {
+            return;
+        }
+
+        this.instaurl.set(buffer, (err, res) => {
+            if (err) {
+                return vscode.window.showErrorMessage('Oops! Failed to create instaurl, server returned an error');
+            }
+
+            targetExec(res);
+        })
+    }
+
+    replaceActiveFrom(target) {
+        let sourceExec = this.sources[target];
+
+        if (!sourceExec) {
+            return;
+        }
+
+        sourceExec((err: Error, key: string) => {
+            if (err) {
+                return vscode.window.showErrorMessage('instaurl: ' + (err.message || err.name || 'Unknown error'));
+            }
+
+            this.instaurl.get(key, (err, res) => {
+                if (err) {
+                    return vscode.window.showErrorMessage('instaurl: ' + (err.message || ('Got an error status code: ' + err.statusCode) || 'Unknown'));
+                }
+                else if (!res || res.length === 0) {
+                    return vscode.window.showErrorMessage('instaurl: Got an empty response!');
+                }
+
+                const start = new vscode.Position(0, 0);
+                const lastLine = vscode.window.activeTextEditor.document.lineCount - 1;
+                const end = vscode.window.activeTextEditor.document.lineAt(lastLine).range.end;
+                const range = new vscode.Range(start, end);
+
+                vscode.window.activeTextEditor.edit((editBuilder) => {
+                    // editBuilder.replace(range, res);
+                    editBuilder.delete(range);
+                    editBuilder.insert(start, res); // TODO
+                }).then((res) => {
+                    console.log(res);
+                    return vscode.window.showInformationMessage('instaurl: Document replaced :-)');
+                });
+            });
+
+
+        });
+    }
+
+    private getActiveBuffer() {
+        let buffer = vscode.window.activeTextEditor.document.getText();
+
+        if (buffer.length > VsCodeInstaurl.MaxSize) {
+            vscode.window.showErrorMessage('Current document is too big')
+            return;
+        }
+
+        return buffer;
+    }
+}
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "vscode-instaurl" is now active!'); 
+    const publicToken = 'Ngb1yfg!gbakeIgbE3!ngjqugBhHgfqe';
+    const token = vscode.workspace.getConfiguration('instaurl').get('token') || publicToken;
+    const codeInstaUrl = new VsCodeInstaurl(token);
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with  registerCommand
-	// The commandId parameter must match the command field in package.json
-	var disposable = vscode.commands.registerCommand('extension.sayHello', () => {
-		// The code you place here will be executed every time your command is executed
+    var createClipboard = vscode.commands.registerCommand(
+        'instaurl.create.current.clipboard',
+        () => codeInstaUrl.createFromActive('clipboard'));
 
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World!');
-	});
-	
-	context.subscriptions.push(disposable);
+    var fromClipboard = vscode.commands.registerCommand(
+        'instaurl.from.current.clipboard',
+        () => codeInstaUrl.replaceActiveFrom('clipboard'));
+
+    context.subscriptions.push(createClipboard);
+    context.subscriptions.push(fromClipboard);
 }

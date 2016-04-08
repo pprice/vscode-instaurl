@@ -1,30 +1,42 @@
 {
-	"name": "vscode-instaurl",
-	"description": "instaurl integration. Easy, secure sharing through one-time URL's.",
-	"version": "0.0.1",
-	"publisher": "Phil Price",
-	"engines": {
-		"vscode": "^0.10.1"
-	},
-	"categories": [
-		"Other"
-	],
-	"activationEvents": [
-		"onCommand:extension.sayHello"
-	],
-	"main": "./out/src/extension",
-	"contributes": {
-		"commands": [{
-			"command": "extension.sayHello",
-			"title": "Hello World"
-		}]
-	},
-	"scripts": {
-		"vscode:prepublish": "node ./node_modules/vscode/bin/compile",
-		"compile": "node ./node_modules/vscode/bin/compile -watch -p ./"
-	},
-	"devDependencies": {
-		"typescript": "^1.6.2",
-		"vscode": "0.10.x"
-	}
+  "name": "vscode-instaurl",
+  "description": "instaurl integration. Easy, secure sharing through one-time URL's.",
+  "version": "0.0.1",
+  "publisher": "Phil Price",
+  "engines": {
+    "vscode": "^0.10.1"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:instaurl.create.current.clipboard",
+    "onCommand:instaurl.from.current.clipboard"
+  ],
+  "main": "./out/src/extension",
+  "contributes": {
+    "commands": [
+      {
+        "command": "instaurl.create.current.clipboard",
+        "title": "Instaurl: Document to clipboard url"
+      }
+      ,
+      {
+          "command": "instaurl.from.current.clipboard",
+          "title": "Instaurl: Replace document from clipboard url"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
+    "compile": "node ./node_modules/vscode/bin/compile -watch -p ./"
+  },
+  "devDependencies": {
+    "typescript": "^1.6.2",
+    "vscode": "0.10.x"
+  },
+  "dependencies": {
+    "copy-paste": "^1.1.4",
+    "instaurl": "0.0.10"
+  }
 }
