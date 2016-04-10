@@ -81,21 +81,27 @@ class VsCodeInstaurl {
                 if (err) {
                     return vscode.window.showErrorMessage('instaurl: ' + (err.message || ('Got an error status code: ' + err.statusCode) || 'Unknown'));
                 }
-                else if (!res || res.length === 0) {
+                else if (!res || !res.secret) {
                     return vscode.window.showErrorMessage('instaurl: Got an empty response!');
                 }
 
-                const start = new vscode.Position(0, 0);
-                const lastLine = vscode.window.activeTextEditor.document.lineCount - 1;
-                const end = vscode.window.activeTextEditor.document.lineAt(lastLine).range.end;
-                const range = new vscode.Range(start, end);
+                let secret = res.secret;
+
+                try {
+                    secret = JSON.parse('"' + res.secret + '"');
+                } catch(e) { }
+
+                const editor = vscode.window.activeTextEditor;
+                const document = editor.document;
 
                 vscode.window.activeTextEditor.edit((editBuilder) => {
-                    // editBuilder.replace(range, res);
-                    editBuilder.delete(range);
-                    editBuilder.insert(start, res); // TODO
+                    const start = new vscode.Position(0, 0);
+                    const lastLine = document.lineCount - 1;
+                    const end = document.lineAt(lastLine).range.end;
+                    const range = new vscode.Range(start, end);
+
+                    editBuilder.replace(range, secret) // TODO
                 }).then((res) => {
-                    console.log(res);
                     return vscode.window.showInformationMessage('instaurl: Document replaced :-)');
                 });
             });
