@@ -1,5 +1,5 @@
 {
-    "name": "vscode-instaurl",
+    "name": "instaurl",
     "description": "instaurl integration. Easy, secure sharing through one-time URL's.",
     "version": "0.0.2",
     "publisher": "pprice",
@@ -7,9 +7,15 @@
         "vscode": "^0.10.1"
     },
     "icon": "images/iu.png",
+    "homepage": "https://github.com/pprice/vscode-instaurl",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/pprice/vscode-instaurl.git"
+    },
     "categories": [
         "Other"
     ],
+    "license": "SEE LICENSE IN LICENSE.txt",
     "activationEvents": [
         "onCommand:instaurl.create.document",
         "onCommand:instaurl.create.selection",
