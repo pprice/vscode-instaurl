@@ -15,7 +15,7 @@
     "categories": [
         "Other"
     ],
-    "license": "SEE LICENSE IN LICENSE.txt",
+    "license": "MIT",
     "activationEvents": [
         "onCommand:instaurl.create.document",
         "onCommand:instaurl.create.selection",
