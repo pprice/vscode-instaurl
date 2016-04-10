@@ -2,10 +2,11 @@
     "name": "vscode-instaurl",
     "description": "instaurl integration. Easy, secure sharing through one-time URL's.",
     "version": "0.0.2",
-    "publisher": "Phil Price",
+    "publisher": "pprice",
     "engines": {
         "vscode": "^0.10.1"
     },
+    "icon": "images/iu.png",
     "categories": [
         "Other"
     ],
