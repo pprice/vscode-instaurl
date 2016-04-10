@@ -8,7 +8,7 @@ class VsCodeInstaurl {
 
     static MaxSize: number = 10 * 1024;
 
-    private targets: { [key: string]: (payload) => void } = {
+    private createDestinations: { [key: string]: (payload) => void } = {
         'clipboard': (payload) => {
             let url = payload.webUrl;
 
@@ -18,7 +18,20 @@ class VsCodeInstaurl {
         }
     }
 
-    private sources: { [key: string]: (callback) => void } = {
+    private createSources: { [key: string]: (editor: vscode.TextEditor) => string } = {
+        'document': (editor) => {
+            return editor.document.getText();
+        },
+        'selection': (editor) => {
+            if (!editor.selection.isEmpty) {
+                return editor.document.getText(editor.selection);
+            }
+
+            return editor.document.getText();
+        }
+    }
+
+    private editSources: { [key: string]: (callback) => void } = {
         'clipboard': (callback) => {
             ncp.paste((err, result) => {
                 if (err || typeof result !== 'string') {
@@ -37,22 +50,54 @@ class VsCodeInstaurl {
         }
     }
 
+    private editDestinations: { [key: string]: (editor: vscode.TextEditor, content) => Thenable<boolean> } = {
+        'document': (editor, content) => {
+            const document = editor.document;
+
+            return editor.edit((editBuilder) => {
+                const start = new vscode.Position(0, 0);
+                const lastLine = document.lineCount - 1;
+                const end = document.lineAt(lastLine).range.end;
+                const range = new vscode.Range(start, end);
+
+                editBuilder.replace(range, content) // TODO
+            });
+        },
+        'selection': (editor, content) => {
+            const document = editor.document;
+
+            // Insert
+            if (editor.selection.isEmpty) {
+                return editor.edit((edit) => {
+                    edit.insert(editor.selection.start, content);
+                })
+            }
+
+            // Replace
+            return editor.edit((edit) => {
+                edit.replace(editor.selection, content);
+            })
+        }
+    }
+
     private instaurl = null;
 
     constructor(token) {
         this.instaurl = new Instaurl({ token: token });
     }
 
-    createFromActive(target) {
-        let buffer = this.getActiveBuffer();
+    create(from, to) {
+        let fromExec = this.createSources[from];
+        let toExec = this.createDestinations[to];
 
-        if (!buffer) {
-            return;
-        }
+        if (!fromExec || !toExec) { return; }
 
-        let targetExec = this.targets[target];
+        let buffer = fromExec(vscode.window.activeTextEditor);
 
-        if (!targetExec) {
+        if (!buffer) { return; }
+
+        if (buffer.length > VsCodeInstaurl.MaxSize) {
+            vscode.window.showErrorMessage('Current document is too big')
             return;
         }
 
@@ -61,18 +106,19 @@ class VsCodeInstaurl {
                 return vscode.window.showErrorMessage('Oops! Failed to create instaurl, server returned an error');
             }
 
-            targetExec(res);
-        })
+            toExec(res);
+        });
     }
 
-    replaceActiveFrom(target) {
-        let sourceExec = this.sources[target];
+    edit(from, to) {
+        let fromExec = this.editSources[from];
+        let toExec = this.editDestinations[to];
 
-        if (!sourceExec) {
+        if (!fromExec || !toExec) {
             return;
         }
 
-        sourceExec((err: Error, key: string) => {
+        fromExec((err: Error, key: string) => {
             if (err) {
                 return vscode.window.showErrorMessage('instaurl: ' + (err.message || err.name || 'Unknown error'));
             }
@@ -89,36 +135,11 @@ class VsCodeInstaurl {
 
                 try {
                     secret = JSON.parse('"' + res.secret + '"');
-                } catch(e) { }
+                } catch (e) { }
 
-                const editor = vscode.window.activeTextEditor;
-                const document = editor.document;
-
-                vscode.window.activeTextEditor.edit((editBuilder) => {
-                    const start = new vscode.Position(0, 0);
-                    const lastLine = document.lineCount - 1;
-                    const end = document.lineAt(lastLine).range.end;
-                    const range = new vscode.Range(start, end);
-
-                    editBuilder.replace(range, secret) // TODO
-                }).then((res) => {
-                    return vscode.window.showInformationMessage('instaurl: Document replaced :-)');
-                });
+                toExec(vscode.window.activeTextEditor, secret);
             });
-
-
         });
-    }
-
-    private getActiveBuffer() {
-        let buffer = vscode.window.activeTextEditor.document.getText();
-
-        if (buffer.length > VsCodeInstaurl.MaxSize) {
-            vscode.window.showErrorMessage('Current document is too big')
-            return;
-        }
-
-        return buffer;
     }
 }
 
@@ -130,14 +151,24 @@ export function activate(context: vscode.ExtensionContext) {
     const token = vscode.workspace.getConfiguration('instaurl').get('token') || publicToken;
     const codeInstaUrl = new VsCodeInstaurl(token);
 
-    var createClipboard = vscode.commands.registerCommand(
-        'instaurl.create.current.clipboard',
-        () => codeInstaUrl.createFromActive('clipboard'));
+    var createDocument = vscode.commands.registerCommand(
+        'instaurl.create.document',
+        () => codeInstaUrl.create('document', 'clipboard'));
 
-    var fromClipboard = vscode.commands.registerCommand(
-        'instaurl.from.current.clipboard',
-        () => codeInstaUrl.replaceActiveFrom('clipboard'));
+    var createSelection = vscode.commands.registerCommand(
+        'instaurl.create.selection',
+        () => codeInstaUrl.create('selection', 'clipboard'));
 
-    context.subscriptions.push(createClipboard);
-    context.subscriptions.push(fromClipboard);
+    var replace = vscode.commands.registerCommand(
+        'instaurl.replace',
+        () => codeInstaUrl.edit('clipboard', 'document'));
+
+    var insert = vscode.commands.registerCommand(
+        'instaurl.insert',
+        () => codeInstaUrl.edit('clipboard', 'selection'));
+
+    context.subscriptions.push(createDocument);
+    context.subscriptions.push(createSelection);
+    context.subscriptions.push(replace);
+    context.subscriptions.push(insert);
 }
